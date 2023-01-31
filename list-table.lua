@@ -123,6 +123,17 @@ local function process(div)
     local rows = {}
 
     for i = 1, #list.content do
+        local attr = nil
+        if (#list.content[i] > 1) then
+            assert(#list.content[i][1].content == 1, "expected row attrs " ..
+                       "to contain only one inline")
+            assert(list.content[i][1].content[1].t == "Span", "expected " ..
+                       "row attrs to contain a span")
+            assert(#list.content[i][1].content[1].content == 0, "expected " ..
+                       "row attrs span to be empty")
+            attr = list.content[i][1].content[1].attr
+            table.remove(list.content[i], 1)
+        end
         assert(#list.content[i] == 1, "expected item to contain only one block")
         assert(list.content[i][1].t == "BulletList",
                "expected bullet list, found " .. list.content[i][1].t)
@@ -130,7 +141,7 @@ local function process(div)
         for _, cell_content in pairs(list.content[i][1].content) do
             table.insert(cells, new_cell(cell_content))
         end
-        local row = pandoc.Row(cells)
+        local row = pandoc.Row(cells, attr)
         table.insert(rows, row)
     end
 
