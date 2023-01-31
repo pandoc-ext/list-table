@@ -45,7 +45,7 @@ local function get_colspecs(div_attributes, column_count)
 
     if div_attributes.aligns then
         local i = 1
-        for a in div_attributes.aligns:gmatch('[^,]') do
+        for a in div_attributes.aligns:gmatch('[^,]+') do
             assert(alignments[a] ~= nil,
                    "unknown column alignment " .. tostring(a))
             colspecs[i][1] = alignments[a]
@@ -57,7 +57,7 @@ local function get_colspecs(div_attributes, column_count)
     if div_attributes.widths then
         local total = 0
         local widths = {}
-        for w in div_attributes.widths:gmatch('[^,]') do
+        for w in div_attributes.widths:gmatch('[^,]+') do
             table.insert(widths, tonumber(w))
             total = total + tonumber(w)
         end
