@@ -35,6 +35,23 @@ local alignments = {
     c = 'AlignCenter'
 }
 
+
+-- This is like assert() but it can take a Block or Blocks 'where' argument
+-- and will output the corresponding markdown (truncated at 1024 characters).
+local function assert_(assertion, message, where)
+    message = message or 'assertion failed!'
+    if not assertion then
+        local extra = ''
+        if where then
+            local blocks = pandoc.Blocks(where)
+            local markdown = pandoc.write(pandoc.Pandoc(blocks), 'markdown')
+            extra = ' at\n' .. markdown:sub(1, 1024) ..
+                (#markdown > 1024 and '...' or '')
+        end
+        error(message .. extra)
+    end
+end
+
 local function get_colspecs(div_attributes, column_count)
     -- list of (align, width) pairs
     local colspecs = {}
@@ -46,8 +63,8 @@ local function get_colspecs(div_attributes, column_count)
     if div_attributes.aligns then
         local i = 1
         for a in div_attributes.aligns:gmatch('[^,]+') do
-            assert(alignments[a] ~= nil,
-                   "unknown column alignment " .. tostring(a))
+            assert_(alignments[a] ~= nil,
+                    "unknown column alignment " .. tostring(a))
             colspecs[i][1] = alignments[a]
             i = i + 1
         end
@@ -116,8 +133,8 @@ local function process(div)
         caption = {pandoc.Plain(para.content)}
     end
 
-    assert(div.content[1].t == "BulletList",
-           "expected bullet list, found " .. div.content[1].t)
+    assert_(div.content[1].t == "BulletList",
+            "expected bullet list, found " .. div.content[1].t, div.content[1])
     local list = div.content[1]
 
     local rows = {}
@@ -125,18 +142,23 @@ local function process(div)
     for i = 1, #list.content do
         local attr = nil
         if (#list.content[i] > 1) then
-            assert(#list.content[i][1].content == 1, "expected row attrs " ..
-                       "to contain only one inline")
-            assert(list.content[i][1].content[1].t == "Span", "expected " ..
-                       "row attrs to contain a span")
-            assert(#list.content[i][1].content[1].content == 0, "expected " ..
-                       "row attrs span to be empty")
+            assert_(#list.content[i][1].content == 1, "expected row attrs " ..
+                        "to contain only one inline",
+                    list.content[i][1].content)
+            assert_(list.content[i][1].content[1].t == "Span", "expected " ..
+                        "row attrs to contain a span",
+                    list.content[i][1].content[1])
+            assert_(#list.content[i][1].content[1].content == 0, "expected " ..
+                        "row attrs span to be empty",
+                    list.content[i][1].content[1])
             attr = list.content[i][1].content[1].attr
             table.remove(list.content[i], 1)
         end
-        assert(#list.content[i] == 1, "expected item to contain only one block")
-        assert(list.content[i][1].t == "BulletList",
-               "expected bullet list, found " .. list.content[i][1].t)
+        assert_(#list.content[i] == 1, "expected item to contain only one " ..
+                    "block", list.content[i])
+        assert_(list.content[i][1].t == "BulletList",
+                "expected bullet list, found " .. list.content[i][1].t,
+                list.content[i][1])
         local cells = {}
         for _, cell_content in pairs(list.content[i][1].content) do
             table.insert(cells, new_cell(cell_content))
