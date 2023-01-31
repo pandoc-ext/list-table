@@ -8,7 +8,7 @@ else
 end
 
 -- Get the list of cells in a row.
-local row_cells = function (row) return row.cells end
+local row_cells = function (row) return row.cells or {} end
 
 -- "Polyfill" for older pandoc versions.
 if PANDOC_VERSION <= '2.16.2' then
@@ -48,7 +48,7 @@ local function assert_(assertion, message, where)
             extra = ' at\n' .. markdown:sub(1, 1024) ..
                 (#markdown > 1024 and '...' or '')
         end
-        error(message .. extra)
+        error(message .. extra, 2)
     end
 end
 
@@ -87,9 +87,10 @@ local function get_colspecs(div_attributes, column_count)
     return colspecs
 end
 
-local function  new_table_body(rows, header_col_count)
+local function new_table_body(rows, attr, header_col_count)
+    attr = attr or {}
     return {
-        attr = {},
+        attr = attr,
         body = rows,
         head = {},
         row_head_columns = header_col_count
@@ -123,7 +124,9 @@ local function new_cell(contents)
 end
 
 local function process(div)
-    if div.attr.classes[1] ~= "list-table" then return nil end
+    if (div.attr.classes[1] ~= "list-table" and
+        div.attr.classes[1] ~= "list-table-body") then return nil end
+    local class = div.attr.classes[1]
     table.remove(div.attr.classes, 1)
 
     local caption = {}
@@ -137,7 +140,9 @@ local function process(div)
             "expected bullet list, found " .. div.content[1].t, div.content[1])
     local list = div.content[1]
 
-    local rows = {}
+    -- rows points to the current body's rows
+    local bodies = {attr=nil, {rows={}}}
+    local rows = bodies[#bodies].rows
 
     for i = 1, #list.content do
         local attr = nil
@@ -154,20 +159,53 @@ local function process(div)
             attr = list.content[i][1].content[1].attr
             table.remove(list.content[i], 1)
         end
+
         assert_(#list.content[i] == 1, "expected item to contain only one " ..
                     "block", list.content[i])
-        assert_(list.content[i][1].t == "BulletList",
-                "expected bullet list, found " .. list.content[i][1].t,
-                list.content[i][1])
-        local cells = {}
-        for _, cell_content in pairs(list.content[i][1].content) do
-            table.insert(cells, new_cell(cell_content))
+
+        if (list.content[i][1].t ~= 'Table') then
+            assert_(list.content[i][1].t == "BulletList",
+                    "expected bullet list, found " .. list.content[i][1].t,
+                    list.content[i][1])
+            local cells = {}
+            for _, cell_content in pairs(list.content[i][1].content) do
+                table.insert(cells, new_cell(cell_content))
+            end
+            local row = pandoc.Row(cells, attr)
+            table.insert(rows, row)
+
+        else
+            local tab = list.content[i][1]
+            -- XXX is there a better way to check that there's no caption?
+            assert_(#tab.caption.long == 0 and #tab.caption.short == 0,
+                    "table bodies can't have captions (they'd be " ..
+                        "ignored)", tab)
+            -- XXX would have to check against default colspecs to know whether
+            --     any have been defined?
+            -- assert_(#tab.colspecs == 0, "table bodies can't (yet) have " ..
+            --         "column specs", tab)
+            assert_(#tab.head.rows == 0, "table bodies can't (yet) have " ..
+                        "headers", tab)
+            assert_(#tab.bodies == 1, "table bodies can't contain other " ..
+                        "table bodies", tab)
+
+            if #rows > 0 then
+                table.insert(bodies, {attr=nil, rows={}})
+                rows = bodies[#bodies].rows
+            end
+
+            bodies[#bodies].attr = tab.attr
+            for _, row in ipairs(tab.bodies[1].body) do
+                table.insert(rows, row)
+            end
         end
-        local row = pandoc.Row(cells, attr)
-        table.insert(rows, row)
     end
 
-    local header_row_count = tonumber(div.attr.attributes['header-rows']) or 1
+    -- switch back to the first body
+    rows = bodies[1].rows
+
+    local header_row_count = tonumber(div.attr.attributes['header-rows']) or
+        (class == 'list-table' and 1 or 0)
     div.attr.attributes['header-rows'] = nil
 
     local header_col_count = tonumber(div.attr.attributes['header-cols']) or 0
@@ -184,11 +222,21 @@ local function process(div)
         table.insert(thead_rows, table.remove(rows, 1))
     end
 
+    local new_bodies = {}
+    for _, body in ipairs(bodies) do
+        if #body.rows > 0 then
+            table.insert(new_bodies, new_table_body(body.rows, body.attr,
+                                                    header_col_count))
+        end
+        -- XXX this should be a body property
+        header_col_count = 0
+    end
+
     return pandoc.Table(
         {long = caption, short = {}},
         colspecs,
         pandoc.TableHead(thead_rows),
-        {new_table_body(rows, header_col_count)},
+        new_bodies,
         pandoc.TableFoot(),
         div.attr
     )
