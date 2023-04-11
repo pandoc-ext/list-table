@@ -40,7 +40,7 @@ as described in the following sections.
 
 ## Table captions
 
-If the div starts with a paragraph its content is used as the table caption.
+If the div starts with a paragraph, its content is used as the table caption.
 For example:
 
 ```markdown
@@ -191,7 +191,7 @@ results in:
 
 ## Cell attributes
 
-If the first inline element of a table cell is an empty Span it
+If the first inline element of a table cell is an empty Span, it
 is removed and its attributes are transferred to the table cell.
 The `colspan` and `rowspan` attributes are supported.
 
@@ -237,4 +237,134 @@ Individual cell alignment is also supported via the `align` attribute.
 Expected values are `l`, `r`, `c` for left, right and center respectively.
 (Please mind that contrary to [column alignments](#column-alignments)
 this attribute is singular).
->>>>>>> origin/import
+
+## Row attributes
+
+If the first block element of a table row contains (only) an
+empty Span, it is removed and its attributes are transferred
+to the table row.
+
+```
+:::{.list-table}
+- []{style="background: lightblue"}
+  - Ocean
+  - Area (sq. miles)
+- - Atlantic
+  - 41.1 million
+- - Pacific
+  - 63.8 million
+:::
+```
+
+results in (the background style won't be shown on github.com):
+
+<table>
+<thead>
+<tr style="background: lightblue">
+<th>Ocean</th>
+<th>Area (sq. miles)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Atlantic</td>
+<td>41.1 million</td>
+</tr>
+<tr>
+<td>Pacific</td>
+<td>63.8 million</td>
+</tr>
+</tbody>
+</table>
+
+## Multiple bodies
+
+If a list row is a table (which might also have been created
+by the `list-table.lua` filter), its rows become a new table
+body. Table bodies can't have header rows (`.list-table-body`
+is the same as `.list-table` except that `header-rows` defaults
+to 0).
+
+```
+:::{.list-table header-rows=0}
+:::{.list-table-body}
+```
+
+This:
+
+```
+:::{.list-table style="background: lightsalmon"}
+* - Fish
+  - Ocean
+
+* :::{.list-table-body style="background: lightgreen"}
+  - - Arctic char
+    - Arctic
+  - - Humuhumunukunukuāpuaʻa
+    - Pacific
+  :::
+
+* ------------- ---------
+  Cod           Atlantic
+  Notothenioids Antarctic
+  ------------- ---------
+:::
+```
+
+results in (the background style won't be shown on github.com):
+
+<table style="background: lightsalmon">
+<thead>
+<tr class="header">
+<th>Fish</th>
+<th>Ocean</th>
+</tr>
+</thead>
+<tbody style="background: lightgreen">
+<tr class="odd">
+<td>Arctic char</td>
+<td>Arctic</td>
+</tr>
+<tr class="even">
+<td>Humuhumunukunukuāpuaʻa</td>
+<td>Pacific</td>
+</tr>
+</tbody>
+<tbody>
+<tr class="odd">
+<td>Cod</td>
+<td>Atlantic</td>
+</tr>
+<tr class="even">
+<td>Notothenioids</td>
+<td>Antarctic</td>
+</tr>
+</tbody>
+</table>
+
+## Error reporting
+
+If an unexpected element is encountered, the filter will attempt
+to output the offending text (as markdown) before asserting.
+
+```
+:::{.list-table}
+- []{style="background:lightblue"}
+  - Ocean
+  - Area (sq. miles)
+- - Atlantic
+  - 41.1 million
+- Pacific
+  63.8 million
+:::
+```
+
+```
+Error running filter list-table.lua:
+../list-table.lua:167: expected bullet list, found Plain at
+Pacific 63.8 million
+
+stack traceback:
+	list-table.lua:51: in upvalue 'assert_'
+	list-table.lua:167: in function <list-table.lua:126>
+```

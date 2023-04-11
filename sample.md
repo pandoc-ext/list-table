@@ -1,3 +1,12 @@
+---
+header-includes: |
+  <style>
+  table, th, td {
+    border: 1px solid;
+  }
+  </style>
+...
+
 :::list-table
    * - row 1, column 1
      - row 1, column 2
@@ -59,4 +68,30 @@
 *  - []{colspan=2}header
 *  - cell 1
    - cell 2
+:::
+
+::: list-table
+*  []{#another-id .some-class some-attr=some-value}
+   - Name
+   - Value
+*  - cell 1
+   - cell 2
+:::
+
+::: list-table
+*  - Name
+   - Value
+
+*  ::: list-table-body
+   * - body 1 row 1 cell 1
+     - body 1 row 1 cell 2
+   * - body 1 row 2 cell 1
+     - body 1 row 2 cell 2
+   :::
+*  ::: list-table-body
+   * - body 2 row 1 cell 1
+     - body 2 row 1 cell 2
+   * - body 2 row 2 cell 1
+     - body 2 row 2 cell 2
+   :::
 :::
