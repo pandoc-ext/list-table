@@ -129,12 +129,16 @@ local function process(div)
     local class = div.attr.classes[1]
     table.remove(div.attr.classes, 1)
 
+    if #div.content == 0 then return nil end
+
     local caption = {}
 
     if div.content[1].t == "Para" then
         local para = table.remove(div.content, 1)
         caption = {pandoc.Plain(para.content)}
     end
+
+    if #div.content == 0 then return nil end
 
     assert_(div.content[1].t == "BulletList",
             "expected bullet list, found " .. div.content[1].t, div.content[1])
@@ -147,6 +151,8 @@ local function process(div)
     for i = 1, #list.content do
         local attr = nil
         if (#list.content[i] > 1) then
+            assert_(list.content[i][1].content, "expected list item to " ..
+                        "have a content attr", list.content[i][1])
             assert_(#list.content[i][1].content == 1, "expected row attrs " ..
                         "to contain only one inline",
                     list.content[i][1].content)
@@ -177,7 +183,8 @@ local function process(div)
         else
             local tab = list.content[i][1]
             -- XXX is there a better way to check that there's no caption?
-            assert_(#tab.caption.long == 0 and #tab.caption.short == 0,
+            assert_((not tab.caption.long or #tab.caption.long == 0) and
+                        (not tab.caption.short or #tab.caption.short == 0),
                     "table bodies can't have captions (they'd be " ..
                         "ignored)", tab)
             -- XXX would have to check against default colspecs to know whether
