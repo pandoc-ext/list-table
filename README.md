@@ -5,6 +5,10 @@ List tables for Pandoc.
 This is the documentation for `list-table.lua`, a Lua filter
 to bring [RST-style list tables] to Pandoc's Markdown.
 
+This filter depends on the [`fenced_divs` pandoc extension], which
+is enabled by default for `commonmark_x`, `markdown` and `opml` but
+will have to be enabled explicitly for other markdown variants.
+
 List tables are not only easy-to-write but also produce clean
 diffs since you don't need to re-align all the whitespace when
 one cell width changes. This filter lets you use RST-inspired
@@ -36,6 +40,7 @@ results in the following table:
 The filter also supports more advanced features,
 as described in the following sections.
 
+[`fenced_divs` pandoc extension]: https://pandoc.org/MANUAL.html#extension-fenced_divs
 [RST-style list tables]: https://docutils.sourceforge.io/docs/ref/rst/directives.html#list-table
 
 ## Table captions
