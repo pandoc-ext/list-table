@@ -123,6 +123,14 @@ local function new_cell(contents)
     return pandoc.Cell(contents, align, rowspan, colspan, attr)
 end
 
+-- Skip data-pos Divs inserted by the sourcepos extension
+local function skip_data_pos(block)
+    if (block.t == "Div" and block.attr.attributes["data-pos"]) then
+        block = block.content[1]
+    end
+    return block
+end
+
 local function process(div)
     if (div.attr.classes[1] ~= "list-table" and
         div.attr.classes[1] ~= "list-table-body") then return nil end
@@ -131,18 +139,23 @@ local function process(div)
 
     if #div.content == 0 then return nil end
 
+    local content = {}
+    for _, block in ipairs(div.content) do
+        table.insert(content, skip_data_pos(block))
+    end
+
     local caption = {}
 
-    if div.content[1].t == "Para" then
-        local para = table.remove(div.content, 1)
+    if content[1].t == "Para" then
+        local para = table.remove(content, 1)
         caption = {pandoc.Plain(para.content)}
     end
 
-    if #div.content == 0 then return nil end
+    if #content == 0 then return nil end
 
-    assert_(div.content[1].t == "BulletList",
-            "expected bullet list, found " .. div.content[1].t, div.content[1])
-    local list = div.content[1]
+    assert_(content[1].t == "BulletList",
+            "expected bullet list, found " .. content[1].t, content[1])
+    local list = content[1]
 
     -- rows points to the current body's rows
     local bodies = {attr=nil, {rows={}}}
@@ -150,38 +163,36 @@ local function process(div)
 
     for i = 1, #list.content do
         local attr = nil
-        if (#list.content[i] > 1) then
-            assert_(list.content[i][1].content, "expected list item to " ..
-                        "have a content attr", list.content[i][1])
-            assert_(#list.content[i][1].content == 1, "expected row attrs " ..
-                        "to contain only one inline",
-                    list.content[i][1].content)
-            assert_(list.content[i][1].content[1].t == "Span", "expected " ..
-                        "row attrs to contain a span",
-                    list.content[i][1].content[1])
-            assert_(#list.content[i][1].content[1].content == 0, "expected " ..
-                        "row attrs span to be empty",
-                    list.content[i][1].content[1])
-            attr = list.content[i][1].content[1].attr
-            table.remove(list.content[i], 1)
+        local items = list.content[i]
+        if (#items > 1) then
+            local item = skip_data_pos(items[1])
+            assert_(item.content, "expected list item to have row attrs ",
+                    item)
+            assert_(#item.content == 1, "expected row attrs to contain " ..
+                        "only one inline", item.content)
+            assert_(item.content[1].t == "Span", "expected row attrs to " ..
+                        "contain a span", item.content[1])
+            assert_(#item.content[1].content == 0, "expected row attrs " ..
+                        "span to be empty", item.content[1])
+            attr = item.content[1].attr
+            table.remove(items, 1)
         end
 
-        assert_(#list.content[i] == 1, "expected item to contain only one " ..
-                    "block", list.content[i])
+        assert_(#items == 1, "expected item to contain only one block", items)
 
-        if (list.content[i][1].t ~= 'Table') then
-            assert_(list.content[i][1].t == "BulletList",
-                    "expected bullet list, found " .. list.content[i][1].t,
-                    list.content[i][1])
+        local item = skip_data_pos(items[1])
+        if (item.t ~= 'Table') then
+            assert_(item.t == "BulletList", "expected bullet list, found " ..
+                        item.t, item)
             local cells = {}
-            for _, cell_content in pairs(list.content[i][1].content) do
+            for _, cell_content in pairs(item.content) do
                 table.insert(cells, new_cell(cell_content))
             end
             local row = pandoc.Row(cells, attr)
             table.insert(rows, row)
 
         else
-            local tab = list.content[i][1]
+            local tab = item
             -- XXX is there a better way to check that there's no caption?
             assert_((not tab.caption.long or #tab.caption.long == 0) and
                         (not tab.caption.short or #tab.caption.short == 0),
