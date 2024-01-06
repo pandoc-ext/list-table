@@ -309,10 +309,10 @@ This:
     - Pacific
   :::
 
-* ------------- ---------
-  Cod           Atlantic
-  Notothenioids Antarctic
-  ------------- ---------
+* |               |           |
+  |---------------|-----------|
+  | Cod           | Atlantic  |
+  | Notothenioids | Antarctic |
 :::
 ```
 
