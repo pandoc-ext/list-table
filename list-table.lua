@@ -52,6 +52,22 @@ local function assert_(assertion, message, where)
     end
 end
 
+-- Skip data-pos Divs inserted by the sourcepos extension
+local function block_skip_data_pos(block)
+    if (block.t == "Div" and block.attr.attributes["data-pos"]) then
+        block = block.content[1]
+    end
+    return block
+end
+
+local function blocks_skip_data_pos(blocks)
+    local new_blocks = {}
+    for _, block in ipairs(blocks) do
+        table.insert(new_blocks, block_skip_data_pos(block))
+    end
+    return new_blocks
+end
+
 local function get_colspecs(div_attributes, column_count)
     -- list of (align, width) pairs
     local colspecs = {}
@@ -103,6 +119,8 @@ local function new_cell(contents)
     local rowspan = 1
     local align = pandoc.AlignDefault
 
+    contents = blocks_skip_data_pos(contents)
+
     -- At the time of writing this Pandoc does not support attributes
     -- on list items, so we use empty spans as a workaround.
     if contents[1] and contents[1].content then
@@ -123,14 +141,6 @@ local function new_cell(contents)
     return pandoc.Cell(contents, align, rowspan, colspan, attr)
 end
 
--- Skip data-pos Divs inserted by the sourcepos extension
-local function skip_data_pos(block)
-    if (block.t == "Div" and block.attr.attributes["data-pos"]) then
-        block = block.content[1]
-    end
-    return block
-end
-
 local function process(div)
     if (div.attr.classes[1] ~= "list-table" and
         div.attr.classes[1] ~= "list-table-body") then return nil end
@@ -139,13 +149,9 @@ local function process(div)
 
     if #div.content == 0 then return nil end
 
-    local content = {}
-    for _, block in ipairs(div.content) do
-        table.insert(content, skip_data_pos(block))
-    end
+    local content = blocks_skip_data_pos(div.content)
 
     local caption = {}
-
     if content[1].t == "Para" then
         local para = table.remove(content, 1)
         caption = {pandoc.Plain(para.content)}
@@ -165,8 +171,8 @@ local function process(div)
         local attr = nil
         local items = list.content[i]
         if (#items > 1) then
-            local item = skip_data_pos(items[1])
-            assert_(item.content, "expected list item to have row attrs ",
+            local item = block_skip_data_pos(items[1])
+            assert_(item.content, "expected list item to have row attrs",
                     item)
             assert_(#item.content == 1, "expected row attrs to contain " ..
                         "only one inline", item.content)
@@ -180,7 +186,7 @@ local function process(div)
 
         assert_(#items == 1, "expected item to contain only one block", items)
 
-        local item = skip_data_pos(items[1])
+        local item = block_skip_data_pos(items[1])
         if (item.t ~= 'Table') then
             assert_(item.t == "BulletList", "expected bullet list, found " ..
                         item.t, item)
@@ -202,8 +208,9 @@ local function process(div)
             --     any have been defined?
             -- assert_(#tab.colspecs == 0, "table bodies can't (yet) have " ..
             --         "column specs", tab)
-            assert_(#tab.head.rows == 0, "table bodies can't (yet) have " ..
-                        "headers", tab)
+            -- XXX should allow empty headers; this can happen with pipe tables
+            -- assert_(not tab.head or #tab.head.rows == 0,
+            --         "table bodies can't (yet) have headers", tab)
             assert_(#tab.bodies == 1, "table bodies can't contain other " ..
                         "table bodies", tab)
 
