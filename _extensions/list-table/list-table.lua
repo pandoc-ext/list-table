@@ -53,6 +53,7 @@ local function assert_(assertion, message, where)
 end
 
 -- Skip data-pos Divs inserted by the sourcepos extension
+-- XXX should only do this if data-pos is the only item in block.attr
 local function block_skip_data_pos(block)
     if (block.t == "Div" and block.attr.attributes["data-pos"]) then
         block = block.content[1]
